@@ -1,0 +1,75 @@
+name: Java application-code regression scenario
+
+# Milestone 3 diagnostic validation. Runs the real Gradle test suite under
+# java-app-regression/, then investigates any failure with the published
+# Nandini1212/axiom-action@v1.15.0 -- no private-repo access, no custom rules.
+
+on:
+  push:
+    paths:
+      - 'java-app-regression/**'
+      - '.github/workflows/java-app-regression.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  run-and-investigate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: java-app-regression
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history, not the default shallow clone -- axiom-action's own --repo/--commit
+          # source-change evidence collection needs the investigated commit's parent to be
+          # resolvable. Explicitly not assuming this alone is sufficient; the evidence steps
+          # below verify the real outcome rather than taking this on faith.
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Run the real Gradle test suite
+        id: run_tests
+        continue-on-error: true
+        run: ./gradlew test --console=plain
+
+      - name: Investigate with the published Axiom Action
+        if: always()
+        uses: Nandini1212/axiom-action@v1.15.0
+        with:
+          axiom-version: 'v1.15.0'
+          report-file: java-app-regression/build/test-results/test/TEST-com.example.pricing.PriceCalculatorTest.xml
+
+      - name: Re-run the same installed binary for log-visible evidence (text format)
+        # $GITHUB_STEP_SUMMARY is reassigned per step (confirmed in the prior smoke-test
+        # milestone), so it can't be read back from a later step. This re-invokes the exact
+        # binary axiom-action just installed and checksum-verified, with the exact same
+        # --repo/--commit arguments the real action.yml adds automatically (action.yml:815),
+        # against the exact same report, so the printed text is the real investigation output.
+        if: always()
+        working-directory: .
+        run: |
+          /home/runner/.axiom/v1.15.0/axiom/bin/axiom investigate \
+            --report java-app-regression/build/test-results/test/TEST-com.example.pricing.PriceCalculatorTest.xml \
+            --repo "${{ github.repository }}" \
+            --commit "${{ github.sha }}"
+        env:
+          AXIOM_GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Same re-run, JSON format, to inspect the evidence array directly
+        if: always()
+        working-directory: .
+        run: |
+          /home/runner/.axiom/v1.15.0/axiom/bin/axiom investigate \
+            --report java-app-regression/build/test-results/test/TEST-com.example.pricing.PriceCalculatorTest.xml \
+            --repo "${{ github.repository }}" \
+            --commit "${{ github.sha }}" \
+            --format json | python3 -m json.tool
+        env:
+          AXIOM_GITHUB_TOKEN: ${{ github.token }}

@@ -1,0 +1,6 @@
+java-app-regression/build/
+java-app-regression/.gradle/
+python-test-defect/__pycache__/
+python-test-defect/.pytest_cache/
+python-test-defect/.report.json
+*.pyc

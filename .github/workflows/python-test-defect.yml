@@ -1,0 +1,71 @@
+name: Python test-automation defect scenario
+
+# Milestone 3 diagnostic validation. Runs the real pytest suite under
+# python-test-defect/, then investigates any failure with the published
+# Nandini1212/axiom-action@v1.15.0 -- no private-repo access, no custom rules.
+
+on:
+  push:
+    paths:
+      - 'python-test-defect/**'
+      - '.github/workflows/python-test-defect.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  run-and-investigate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python-test-defect
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Same reasoning as the Java scenario's workflow -- full history so axiom-action's
+          # own --repo/--commit evidence collection can resolve the investigated commit's
+          # parent. Verified, not assumed, by the evidence steps below.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pytest and pytest-json-report
+        run: pip install pytest pytest-json-report
+
+      - name: Run the real pytest suite
+        id: run_tests
+        continue-on-error: true
+        run: pytest --json-report --json-report-file=.report.json
+
+      - name: Investigate with the published Axiom Action
+        if: always()
+        uses: Nandini1212/axiom-action@v1.15.0
+        with:
+          axiom-version: 'v1.15.0'
+          report-file: python-test-defect/.report.json
+
+      - name: Re-run the same installed binary for log-visible evidence (text format)
+        if: always()
+        working-directory: .
+        run: |
+          /home/runner/.axiom/v1.15.0/axiom/bin/axiom investigate \
+            --report python-test-defect/.report.json \
+            --repo "${{ github.repository }}" \
+            --commit "${{ github.sha }}"
+        env:
+          AXIOM_GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Same re-run, JSON format, to inspect the evidence array directly
+        if: always()
+        working-directory: .
+        run: |
+          /home/runner/.axiom/v1.15.0/axiom/bin/axiom investigate \
+            --report python-test-defect/.report.json \
+            --repo "${{ github.repository }}" \
+            --commit "${{ github.sha }}" \
+            --format json | python3 -m json.tool
+        env:
+          AXIOM_GITHUB_TOKEN: ${{ github.token }}
