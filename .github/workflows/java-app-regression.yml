@@ -5,6 +5,7 @@ name: Java application-code regression scenario
 # Nandini1212/axiom-action@v1.15.0 -- no private-repo access, no custom rules.
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'java-app-regression/**'
