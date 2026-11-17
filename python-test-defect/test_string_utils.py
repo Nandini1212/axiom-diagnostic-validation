@@ -11,3 +11,7 @@ def test_is_palindrome_rejects_hello():
 
 def test_is_palindrome_detects_empty_string():
     assert is_palindrome("") is True
+
+
+def test_is_palindrome_detects_hello():
+    assert is_palindrome("hello") is True
