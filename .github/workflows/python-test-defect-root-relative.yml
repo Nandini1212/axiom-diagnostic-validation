@@ -9,6 +9,9 @@ name: Python test-automation defect scenario (root-relative invocation)
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - 'v1.15.1-smoke-test'
 
 permissions:
   contents: read
