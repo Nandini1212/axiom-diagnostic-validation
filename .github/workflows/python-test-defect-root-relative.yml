@@ -1,0 +1,63 @@
+name: Python test-automation defect scenario (root-relative invocation)
+
+# v1.15.1 post-release Action smoke test, Scenario B (directory-qualified matching): pytest is
+# invoked from the repository ROOT here, not from within python-test-defect/ (contrast with
+# python-test-defect.yml's own working-directory) -- producing a real, directory-qualified
+# nodeid ("python-test-defect/test_string_utils.py::...") rather than a bare one. Investigates
+# through the published Nandini1212/axiom-action@v1.15.1, the real public Action, not a local
+# CLI invocation.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run-and-investigate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pytest and pytest-json-report
+        run: pip install pytest pytest-json-report
+
+      - name: Run the real pytest suite from the repository root
+        id: run_tests
+        continue-on-error: true
+        run: pytest python-test-defect --json-report --json-report-file=python-test-defect/.report-root.json
+
+      - name: Investigate with the published Axiom Action
+        if: always()
+        uses: Nandini1212/axiom-action@v1.15.1
+        with:
+          axiom-version: 'v1.15.1'
+          report-file: python-test-defect/.report-root.json
+
+      - name: Re-run the same installed binary for log-visible evidence (text format)
+        if: always()
+        run: |
+          /home/runner/.axiom/v1.15.1/axiom/bin/axiom investigate \
+            --report python-test-defect/.report-root.json \
+            --repo "${{ github.repository }}" \
+            --commit "${{ github.sha }}"
+        env:
+          AXIOM_GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Same re-run, JSON format, to inspect the evidence array directly
+        if: always()
+        run: |
+          /home/runner/.axiom/v1.15.1/axiom/bin/axiom investigate \
+            --report python-test-defect/.report-root.json \
+            --repo "${{ github.repository }}" \
+            --commit "${{ github.sha }}" \
+            --format json | python3 -m json.tool
+        env:
+          AXIOM_GITHUB_TOKEN: ${{ github.token }}

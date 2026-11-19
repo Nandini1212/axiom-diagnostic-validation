@@ -2,7 +2,7 @@ name: Python test-automation defect scenario
 
 # Milestone 3 diagnostic validation. Runs the real pytest suite under
 # python-test-defect/, then investigates any failure with the published
-# Nandini1212/axiom-action@v1.15.0 -- no private-repo access, no custom rules.
+# Nandini1212/axiom-action@v1.15.1 -- no private-repo access, no custom rules.
 
 on:
   workflow_dispatch:
@@ -43,16 +43,16 @@ jobs:
 
       - name: Investigate with the published Axiom Action
         if: always()
-        uses: Nandini1212/axiom-action@v1.15.0
+        uses: Nandini1212/axiom-action@v1.15.1
         with:
-          axiom-version: 'v1.15.0'
+          axiom-version: 'v1.15.1'
           report-file: python-test-defect/.report.json
 
       - name: Re-run the same installed binary for log-visible evidence (text format)
         if: always()
         working-directory: .
         run: |
-          /home/runner/.axiom/v1.15.0/axiom/bin/axiom investigate \
+          /home/runner/.axiom/v1.15.1/axiom/bin/axiom investigate \
             --report python-test-defect/.report.json \
             --repo "${{ github.repository }}" \
             --commit "${{ github.sha }}"
@@ -63,7 +63,7 @@ jobs:
         if: always()
         working-directory: .
         run: |
-          /home/runner/.axiom/v1.15.0/axiom/bin/axiom investigate \
+          /home/runner/.axiom/v1.15.1/axiom/bin/axiom investigate \
             --report python-test-defect/.report.json \
             --repo "${{ github.repository }}" \
             --commit "${{ github.sha }}" \

@@ -2,7 +2,7 @@ name: Java application-code regression scenario
 
 # Milestone 3 diagnostic validation. Runs the real Gradle test suite under
 # java-app-regression/, then investigates any failure with the published
-# Nandini1212/axiom-action@v1.15.0 -- no private-repo access, no custom rules.
+# Nandini1212/axiom-action@v1.15.1 -- no private-repo access, no custom rules.
 
 on:
   workflow_dispatch:
@@ -42,9 +42,9 @@ jobs:
 
       - name: Investigate with the published Axiom Action
         if: always()
-        uses: Nandini1212/axiom-action@v1.15.0
+        uses: Nandini1212/axiom-action@v1.15.1
         with:
-          axiom-version: 'v1.15.0'
+          axiom-version: 'v1.15.1'
           report-file: java-app-regression/build/test-results/test/TEST-com.example.pricing.PriceCalculatorTest.xml
 
       - name: Re-run the same installed binary for log-visible evidence (text format)
@@ -56,7 +56,7 @@ jobs:
         if: always()
         working-directory: .
         run: |
-          /home/runner/.axiom/v1.15.0/axiom/bin/axiom investigate \
+          /home/runner/.axiom/v1.15.1/axiom/bin/axiom investigate \
             --report java-app-regression/build/test-results/test/TEST-com.example.pricing.PriceCalculatorTest.xml \
             --repo "${{ github.repository }}" \
             --commit "${{ github.sha }}"
@@ -67,7 +67,7 @@ jobs:
         if: always()
         working-directory: .
         run: |
-          /home/runner/.axiom/v1.15.0/axiom/bin/axiom investigate \
+          /home/runner/.axiom/v1.15.1/axiom/bin/axiom investigate \
             --report java-app-regression/build/test-results/test/TEST-com.example.pricing.PriceCalculatorTest.xml \
             --repo "${{ github.repository }}" \
             --commit "${{ github.sha }}" \
