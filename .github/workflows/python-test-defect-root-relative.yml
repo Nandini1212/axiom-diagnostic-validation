@@ -9,9 +9,6 @@ name: Python test-automation defect scenario (root-relative invocation)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - 'v1.15.1-smoke-test'
 
 permissions:
   contents: read
@@ -68,5 +65,33 @@ jobs:
             --repo "${{ github.repository }}" \
             --commit c7443084bd112f8ee221cbac72efd8aaae93df87 \
             --format json | python3 -m json.tool
+
+      - name: Assert the real diagnosis -- directory-qualified filename must determine
+        # Mirror-image of python-test-defect.yml's own assertion: this scenario must reach
+        # DETERMINED/TEST_AUTOMATION_BUG/0.80 with both real evidence reasons present, never
+        # silently degrade to an abstention.
+        if: always()
+        run: |
+          /home/runner/.axiom/v1.15.1/axiom/bin/axiom investigate \
+            --report python-test-defect/.report-root.json \
+            --repo "${{ github.repository }}" \
+            --commit c7443084bd112f8ee221cbac72efd8aaae93df87 \
+            --format json > result.json
+          python3 - << 'PYEOF'
+          import json
+          a = json.load(open("result.json"))["failures"][0]["assessment"]
+          assert a["disposition"] == "DETERMINED", f"disposition: {a['disposition']!r}"
+          assert a["selectedCategory"] == "TEST_AUTOMATION_BUG", f"selectedCategory: {a['selectedCategory']!r}"
+          top = a["rankedHypotheses"][0]
+          assert top["category"] == "TEST_AUTOMATION_BUG", f"category: {top['category']!r}"
+          assert abs(top["confidence"] - 0.80) < 1e-9, f"confidence: {top['confidence']!r}"
+          reasons = {c["reason"] for c in top["contributions"]}
+          expected = {
+              "The failing test's own file was changed in the commit under test",
+              "Top stack frame belongs to test code",
+          }
+          assert reasons == expected, f"reasons: {reasons!r}"
+          print("PASS: directory-qualified filename correctly determines with both expected signals")
+          PYEOF
         env:
           AXIOM_GITHUB_TOKEN: ${{ github.token }}
