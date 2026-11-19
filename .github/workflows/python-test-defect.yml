@@ -73,6 +73,8 @@ jobs:
             --repo "${{ github.repository }}" \
             --commit c7443084bd112f8ee221cbac72efd8aaae93df87 \
             --format json | python3 -m json.tool
+        env:
+          AXIOM_GITHUB_TOKEN: ${{ github.token }}
 
       - name: Assert the real diagnosis -- bare filename must abstain, not determine
         # A green workflow alone never proves the diagnosis was correct: the CLI invocation

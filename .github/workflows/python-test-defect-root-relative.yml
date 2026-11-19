@@ -65,6 +65,8 @@ jobs:
             --repo "${{ github.repository }}" \
             --commit c7443084bd112f8ee221cbac72efd8aaae93df87 \
             --format json | python3 -m json.tool
+        env:
+          AXIOM_GITHUB_TOKEN: ${{ github.token }}
 
       - name: Assert the real diagnosis -- directory-qualified filename must determine
         # Mirror-image of python-test-defect.yml's own assertion: this scenario must reach
