@@ -42,11 +42,16 @@ jobs:
         run: pytest --json-report --json-report-file=.report.json
 
       - name: Investigate with the published Axiom Action
+        # commit-sha pinned to the real defect commit -- this run's own triggering commit
+        # (github.sha) only edits workflow files when dispatched from a non-defect commit, so
+        # relying on the default would evaluate "nothing relevant changed" rather than this
+        # scenario's real bare-filename-ambiguity shape.
         if: always()
         uses: Nandini1212/axiom-action@v1.15.1
         with:
           axiom-version: 'v1.15.1'
           report-file: python-test-defect/.report.json
+          commit-sha: c7443084bd112f8ee221cbac72efd8aaae93df87
 
       - name: Re-run the same installed binary for log-visible evidence (text format)
         if: always()
@@ -55,7 +60,7 @@ jobs:
           /home/runner/.axiom/v1.15.1/axiom/bin/axiom investigate \
             --report python-test-defect/.report.json \
             --repo "${{ github.repository }}" \
-            --commit "${{ github.sha }}"
+            --commit c7443084bd112f8ee221cbac72efd8aaae93df87
         env:
           AXIOM_GITHUB_TOKEN: ${{ github.token }}
 
@@ -66,7 +71,7 @@ jobs:
           /home/runner/.axiom/v1.15.1/axiom/bin/axiom investigate \
             --report python-test-defect/.report.json \
             --repo "${{ github.repository }}" \
-            --commit "${{ github.sha }}" \
+            --commit c7443084bd112f8ee221cbac72efd8aaae93df87 \
             --format json | python3 -m json.tool
         env:
           AXIOM_GITHUB_TOKEN: ${{ github.token }}

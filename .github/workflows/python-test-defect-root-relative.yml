@@ -38,11 +38,17 @@ jobs:
         run: pytest python-test-defect --json-report --json-report-file=python-test-defect/.report-root.json
 
       - name: Investigate with the published Axiom Action
+        # commit-sha is pinned to the real defect-introducing commit, not left to default to
+        # this workflow's own triggering commit (github.sha) -- this run's actual commit only
+        # edits workflow files, so github.sha's own real diff never touches
+        # python-test-defect/test_string_utils.py at all. Evidence collection must target the
+        # commit that actually introduced the defect for this scenario to mean anything.
         if: always()
         uses: Nandini1212/axiom-action@v1.15.1
         with:
           axiom-version: 'v1.15.1'
           report-file: python-test-defect/.report-root.json
+          commit-sha: c7443084bd112f8ee221cbac72efd8aaae93df87
 
       - name: Re-run the same installed binary for log-visible evidence (text format)
         if: always()
@@ -50,7 +56,7 @@ jobs:
           /home/runner/.axiom/v1.15.1/axiom/bin/axiom investigate \
             --report python-test-defect/.report-root.json \
             --repo "${{ github.repository }}" \
-            --commit "${{ github.sha }}"
+            --commit c7443084bd112f8ee221cbac72efd8aaae93df87
         env:
           AXIOM_GITHUB_TOKEN: ${{ github.token }}
 
@@ -60,7 +66,7 @@ jobs:
           /home/runner/.axiom/v1.15.1/axiom/bin/axiom investigate \
             --report python-test-defect/.report-root.json \
             --repo "${{ github.repository }}" \
-            --commit "${{ github.sha }}" \
+            --commit c7443084bd112f8ee221cbac72efd8aaae93df87 \
             --format json | python3 -m json.tool
         env:
           AXIOM_GITHUB_TOKEN: ${{ github.token }}
