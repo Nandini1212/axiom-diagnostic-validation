@@ -1,0 +1,99 @@
+name: Python test-automation defect scenario (root-relative invocation)
+
+# v1.15.1 post-release Action smoke test, Scenario B (directory-qualified matching): pytest is
+# invoked from the repository ROOT here, not from within python-test-defect/ (contrast with
+# python-test-defect.yml's own working-directory) -- producing a real, directory-qualified
+# nodeid ("python-test-defect/test_string_utils.py::...") rather than a bare one. Investigates
+# through the published Nandini1212/axiom-action@v1.15.1, the real public Action, not a local
+# CLI invocation.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run-and-investigate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pytest and pytest-json-report
+        run: pip install pytest pytest-json-report
+
+      - name: Run the real pytest suite from the repository root
+        id: run_tests
+        continue-on-error: true
+        run: pytest python-test-defect --json-report --json-report-file=python-test-defect/.report-root.json
+
+      - name: Investigate with the published Axiom Action
+        # commit-sha is pinned to the real defect-introducing commit, not left to default to
+        # this workflow's own triggering commit (github.sha) -- this run's actual commit only
+        # edits workflow files, so github.sha's own real diff never touches
+        # python-test-defect/test_string_utils.py at all. Evidence collection must target the
+        # commit that actually introduced the defect for this scenario to mean anything.
+        if: always()
+        uses: Nandini1212/axiom-action@v1.15.1
+        with:
+          axiom-version: 'v1.15.1'
+          report-file: python-test-defect/.report-root.json
+          commit-sha: c7443084bd112f8ee221cbac72efd8aaae93df87
+
+      - name: Re-run the same installed binary for log-visible evidence (text format)
+        if: always()
+        run: |
+          /home/runner/.axiom/v1.15.1/axiom/bin/axiom investigate \
+            --report python-test-defect/.report-root.json \
+            --repo "${{ github.repository }}" \
+            --commit c7443084bd112f8ee221cbac72efd8aaae93df87
+        env:
+          AXIOM_GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Same re-run, JSON format, to inspect the evidence array directly
+        if: always()
+        run: |
+          /home/runner/.axiom/v1.15.1/axiom/bin/axiom investigate \
+            --report python-test-defect/.report-root.json \
+            --repo "${{ github.repository }}" \
+            --commit c7443084bd112f8ee221cbac72efd8aaae93df87 \
+            --format json | python3 -m json.tool
+        env:
+          AXIOM_GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Assert the real diagnosis -- directory-qualified filename must determine
+        # Mirror-image of python-test-defect.yml's own assertion: this scenario must reach
+        # DETERMINED/TEST_AUTOMATION_BUG/0.80 with both real evidence reasons present, never
+        # silently degrade to an abstention.
+        if: always()
+        run: |
+          /home/runner/.axiom/v1.15.1/axiom/bin/axiom investigate \
+            --report python-test-defect/.report-root.json \
+            --repo "${{ github.repository }}" \
+            --commit c7443084bd112f8ee221cbac72efd8aaae93df87 \
+            --format json > result.json
+          python3 - << 'PYEOF'
+          import json
+          a = json.load(open("result.json"))["failures"][0]["assessment"]
+          assert a["disposition"] == "DETERMINED", f"disposition: {a['disposition']!r}"
+          assert a["selectedCategory"] == "TEST_AUTOMATION_BUG", f"selectedCategory: {a['selectedCategory']!r}"
+          top = a["rankedHypotheses"][0]
+          assert top["category"] == "TEST_AUTOMATION_BUG", f"category: {top['category']!r}"
+          assert abs(top["confidence"] - 0.80) < 1e-9, f"confidence: {top['confidence']!r}"
+          reasons = {c["reason"] for c in top["contributions"]}
+          expected = {
+              "The failing test's own file was changed in the commit under test",
+              "Top stack frame belongs to test code",
+          }
+          assert reasons == expected, f"reasons: {reasons!r}"
+          print("PASS: directory-qualified filename correctly determines with both expected signals")
+          PYEOF
+        env:
+          AXIOM_GITHUB_TOKEN: ${{ github.token }}

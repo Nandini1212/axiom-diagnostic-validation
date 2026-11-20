@@ -2,7 +2,7 @@ name: Python test-automation defect scenario
 
 # Milestone 3 diagnostic validation. Runs the real pytest suite under
 # python-test-defect/, then investigates any failure with the published
-# Nandini1212/axiom-action@v1.15.0 -- no private-repo access, no custom rules.
+# Nandini1212/axiom-action@v1.15.1 -- no private-repo access, no custom rules.
 
 on:
   workflow_dispatch:
@@ -42,20 +42,25 @@ jobs:
         run: pytest --json-report --json-report-file=.report.json
 
       - name: Investigate with the published Axiom Action
+        # commit-sha pinned to the real defect commit -- this run's own triggering commit
+        # (github.sha) only edits workflow files when dispatched from a non-defect commit, so
+        # relying on the default would evaluate "nothing relevant changed" rather than this
+        # scenario's real bare-filename-ambiguity shape.
         if: always()
-        uses: Nandini1212/axiom-action@v1.15.0
+        uses: Nandini1212/axiom-action@v1.15.1
         with:
-          axiom-version: 'v1.15.0'
+          axiom-version: 'v1.15.1'
           report-file: python-test-defect/.report.json
+          commit-sha: c7443084bd112f8ee221cbac72efd8aaae93df87
 
       - name: Re-run the same installed binary for log-visible evidence (text format)
         if: always()
         working-directory: .
         run: |
-          /home/runner/.axiom/v1.15.0/axiom/bin/axiom investigate \
+          /home/runner/.axiom/v1.15.1/axiom/bin/axiom investigate \
             --report python-test-defect/.report.json \
             --repo "${{ github.repository }}" \
-            --commit "${{ github.sha }}"
+            --commit c7443084bd112f8ee221cbac72efd8aaae93df87
         env:
           AXIOM_GITHUB_TOKEN: ${{ github.token }}
 
@@ -63,10 +68,39 @@ jobs:
         if: always()
         working-directory: .
         run: |
-          /home/runner/.axiom/v1.15.0/axiom/bin/axiom investigate \
+          /home/runner/.axiom/v1.15.1/axiom/bin/axiom investigate \
             --report python-test-defect/.report.json \
             --repo "${{ github.repository }}" \
-            --commit "${{ github.sha }}" \
+            --commit c7443084bd112f8ee221cbac72efd8aaae93df87 \
             --format json | python3 -m json.tool
+        env:
+          AXIOM_GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Assert the real diagnosis -- bare filename must abstain, not determine
+        # A green workflow alone never proves the diagnosis was correct: the CLI invocation
+        # above exits 0 whether the result is right or wrong. This step reads the exact same
+        # --format json output (schema verified directly against a real v1.15.1 run: the path
+        # is failures[0].assessment, not a guessed field name) and fails the job outright if
+        # the actual disposition, category, confidence, or evidence reasons ever regress.
+        if: always()
+        working-directory: .
+        run: |
+          /home/runner/.axiom/v1.15.1/axiom/bin/axiom investigate \
+            --report python-test-defect/.report.json \
+            --repo "${{ github.repository }}" \
+            --commit c7443084bd112f8ee221cbac72efd8aaae93df87 \
+            --format json > result.json
+          python3 - << 'PYEOF'
+          import json
+          a = json.load(open("result.json"))["failures"][0]["assessment"]
+          assert a["disposition"] == "NEEDS_INVESTIGATION", f"disposition: {a['disposition']!r}"
+          assert a["selectedCategory"] is None, f"selectedCategory: {a['selectedCategory']!r}"
+          top = a["rankedHypotheses"][0]
+          assert top["category"] == "TEST_AUTOMATION_BUG", f"category: {top['category']!r}"
+          assert abs(top["confidence"] - 0.25) < 1e-9, f"confidence: {top['confidence']!r}"
+          reasons = [c["reason"] for c in top["contributions"]]
+          assert reasons == ["Top stack frame belongs to test code"], f"reasons: {reasons!r}"
+          print("PASS: bare filename correctly abstains with exactly the expected signal")
+          PYEOF
         env:
           AXIOM_GITHUB_TOKEN: ${{ github.token }}
